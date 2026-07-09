@@ -2,7 +2,7 @@ const path = require("path");
 const { expect } = require("chai");
 const { createDriver } = require("../utils/driver");
 const config = require("../utils/config");
-const { readExcel } = require("../utils/excel");
+const { readData } = require("../utils/data");
 const LoginPage = require("../pages/LoginPage");
 
 // Q10: Secrets and environment-specific values (real credentials, API tokens, base URLs)
@@ -11,10 +11,14 @@ const LoginPage = require("../pages/LoginPage");
 // not committed spreadsheets, since it changes every run and must not be shared in git.
 //
 // Source: data/login-data.xlsx (mirror in login-data.csv).
-const EXCEL_PATH = path.join(__dirname, "../data/login-data.xlsx");
+const source = process.env.DATA_SOURCE || "xlsx";
+const dataPath = path.join(
+    __dirname,
+    `../data/login-data.${source === "csv" ? "csv" : "xlsx"}`
+);
 
-const main = readExcel(EXCEL_PATH);
-const edge = readExcel(EXCEL_PATH, "EdgeCases");
+const main = readData(dataPath);
+const edge = source === "csv" ? [] : readData(dataPath, "EdgeCases");
 
 function resolveCredential(value) {
     if (value === "__VALID_EMAIL__") return config.user.email;

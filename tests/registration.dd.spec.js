@@ -2,14 +2,23 @@ const path = require("path");
 const { expect } = require("chai");
 const { createDriver } = require("../utils/driver");
 const config = require("../utils/config");
-const { readExcel } = require("../utils/excel");
+const { readData } = require("../utils/data");
+const { validate } = require("../utils/validate");
 const RegistrationPage = require("../pages/RegistrationPage");
 
 // ExpandTesting /register has no email field. Spreadsheet columns follow the homework
 // shape; at runtime email (if present) or firstName + lastName map to the username field.
 // Unique suffixes for success rows use hyphens to stay within site username rules.
-const EXCEL_PATH = path.join(__dirname, "../data/registration-data.xlsx");
-const rows = readExcel(EXCEL_PATH);
+const source = process.env.DATA_SOURCE || "xlsx";
+const dataPath = path.join(
+    __dirname,
+    `../data/registration-data.${source === "csv" ? "csv" : "xlsx"}`
+);
+const dataset = readData(dataPath);
+validate(dataset);
+
+const filter = process.env.TEST_FILTER || "";
+const filtered = dataset.filter((row) => row.testId.startsWith(filter));
 
 function buildUsername(row) {
     const email = (row.email ?? "").toString().trim();
@@ -19,7 +28,7 @@ function buildUsername(row) {
 
 function resolveUsername(row) {
     let username = buildUsername(row);
-    if (row.expected === "success" && username) {
+    if (row.expected === "pass" && username) {
         const suffix = `-${Date.now().toString(36)}`;
         const maxBaseLength = Math.max(3, 39 - suffix.length);
         if (username.length > maxBaseLength) {
@@ -39,9 +48,7 @@ async function getFlashSafe(page) {
 }
 
 async function assertExpected(driver, page, row) {
-    const expected = row.expected;
-
-    if (expected === "success") {
+    if (row.expected === "pass") {
         await driver.wait(async () => {
             const url = await driver.getCurrentUrl();
             return url.includes("/login");
@@ -51,22 +58,12 @@ async function assertExpected(driver, page, row) {
         return;
     }
 
-    if (expected === "required") {
-        expect(await getFlashSafe(page)).to.include("All fields are required.");
-        return;
-    }
-
-    if (expected === "mismatch") {
-        expect(await getFlashSafe(page)).to.include("Passwords do not match.");
-        return;
-    }
-
-    if (expected === "error") {
+    if (row.expected === "fail") {
         expect(await getFlashSafe(page)).to.include(String(row.expectedError));
         return;
     }
 
-    throw new Error(`Unknown expected outcome: ${expected}`);
+    throw new Error(`Unknown expected outcome: ${row.expected}`);
 }
 
 describe("Registration - Main", function () {
@@ -83,7 +80,7 @@ describe("Registration - Main", function () {
         if (driver) await driver.quit();
     });
 
-    rows.forEach((row) => {
+    filtered.forEach((row) => {
         it(`[${row.testId}] ${row.testCase}`, async function () {
             await registrationPage.register({
                 username: resolveUsername(row),
