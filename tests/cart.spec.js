@@ -1,0 +1,80 @@
+// tests/cart.spec.js
+// Tests for the Cart page on AutomationExercise.
+//
+// NOTE: Adding items to the cart requires hovering over product cards and clicking
+// the overlay "Add to cart" button — that hover interaction is left as a TODO in
+// ProductsPage. The tests below use direct URL navigation where possible, and
+// mark the cart-addition flow as TODO.
+
+const { expect } = require("chai");
+const DriverFactory = require("../utils/driver");
+const logger = require("../utils/logger");
+const CartPage = require("../pages/CartPage");
+const LoginPage = require("../pages/LoginPage");
+const users = require("../data/users.json");
+
+describe("Cart page", function () {
+    let driver, cartPage, loginPage;
+
+    beforeEach(async function () {
+        driver = await DriverFactory.build();
+        cartPage = new CartPage(driver);
+        loginPage = new LoginPage(driver);
+    });
+
+    afterEach(async function () {
+        if (driver) await driver.quit();
+    });
+
+    // ── Passing tests (implemented) ──────────────────────────────────────────
+
+    it("@smoke should load the cart page without errors", async function () {
+        await cartPage.open();
+        const url = await cartPage.getCurrentUrl();
+        expect(url).to.include("/view_cart");
+    });
+
+    it("@smoke should show 0 items when cart is empty (unauthenticated)", async function () {
+        await cartPage.open();
+        const count = await cartPage.getItemCount();
+        logger.info(`Cart item count: ${count}`);
+        expect(count).to.equal(0);
+    });
+
+    it("should prompt login when proceeding to checkout as a guest", async function () {
+        await cartPage.open();
+        await cartPage.proceedToCheckout();
+        // A modal appears with a "Register / Login account" link
+        const url = await cartPage.getCurrentUrl();
+        // Either still on cart (modal shown) or redirected to login
+        expect(url).to.satisfy((u) => u.includes("/view_cart") || u.includes("/login"), "Expected to stay on /view_cart or be redirected to /login");
+    });
+
+    // ── TODO for practice ────────────────────────────────────────────────────
+
+    // TODO 1: Test that a product added from the Products page appears in the cart.
+    //   Pre-condition: implement addFirstProductToCart() in ProductsPage first.
+    //   Steps:
+    //   - Open ProductsPage, call addFirstProductToCart()
+    //   - Navigate to CartPage
+    //   - Assert getItemCount() === 1
+    //
+    // it("should contain the product after adding it from the products page", async function () { ... });
+
+    // TODO 2: Test removing an item from the cart.
+    //   Pre-condition: same as TODO 1 — need at least 1 item in cart.
+    //   Steps:
+    //   - Add a product, navigate to CartPage
+    //   - Call removeItemAtIndex(1)
+    //   - Assert getItemCount() === 0  (or isEmpty() === true — implement that too)
+    //
+    // it("should remove an item when the delete icon is clicked", async function () { ... });
+
+    // TODO 3: Test the full "login → view cart" flow.
+    //   Steps:
+    //   - Log in via LoginPage
+    //   - Open CartPage
+    //   - Assert the page loads without errors (URL includes /view_cart)
+    //
+    // it("should allow a logged-in user to view the cart", async function () { ... });
+});
